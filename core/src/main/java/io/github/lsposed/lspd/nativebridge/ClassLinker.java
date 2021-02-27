@@ -20,13 +20,11 @@
 
 package io.github.lsposed.lspd.nativebridge;
 
-import io.github.lsposed.common.KeepAll;
-
 import java.lang.reflect.Member;
 
 import de.robv.android.xposed.PendingHooks;
 
-public class ClassLinker implements KeepAll {
+public class ClassLinker {
 
     public static native void setEntryPointsToInterpreter(Member method);
 

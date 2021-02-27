@@ -36,9 +36,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Locale;
 
-import dalvik.system.VMRuntime;
 import io.github.lsposed.manager.BuildConfig;
-import io.github.lsposed.manager.Constants;
+import io.github.lsposed.manager.ConfigManager;
 import io.github.lsposed.manager.R;
 import io.github.lsposed.manager.databinding.StatusInstallerBinding;
 
@@ -48,10 +47,8 @@ public class StatusDialogBuilder extends AlertDialog.Builder {
     private static final String CPU_ABI2;
 
     static {
-        final String[] abiList;
-        if (VMRuntime.getRuntime().is64Bit()) {
-            abiList = Build.SUPPORTED_64_BIT_ABIS;
-        } else {
+        String[] abiList = Build.SUPPORTED_64_BIT_ABIS;
+        if (abiList.length == 0) {
             abiList = Build.SUPPORTED_32_BIT_ABIS;
         }
         CPU_ABI = abiList[0];
@@ -66,20 +63,25 @@ public class StatusDialogBuilder extends AlertDialog.Builder {
         super(context);
         StatusInstallerBinding binding = StatusInstallerBinding.inflate(LayoutInflater.from(context), null, false);
 
-        String installedXposedVersion = Constants.getXposedVersion();
+        String installXposedVersion = ConfigManager.getXposedVersionName();
         String mAppVer = String.format("%s (%s)", BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE);
         binding.manager.setText(mAppVer);
 
-        if (installedXposedVersion != null) {
-            binding.api.setText(String.format(Locale.US, "%s.0", Constants.getXposedApiVersion()));
-            binding.framework.setText(String.format(Locale.US, "%s (%s)", installedXposedVersion, Constants.getXposedVersionCode()));
+        if (installXposedVersion != null) {
+            binding.api.setText(String.format(Locale.US, "%s.0", ConfigManager.getXposedApiVersion()));
+            binding.framework.setText(String.format(Locale.US, "%s (%s)", installXposedVersion, ConfigManager.getXposedVersionCode()));
         }
 
-        binding.androidVersion.setText(context.getString(R.string.android_sdk, getAndroidVersion(), Build.VERSION.RELEASE, Build.VERSION.SDK_INT));
+        if (Build.VERSION.PREVIEW_SDK_INT != 0) {
+            binding.androidVersion.setText(context.getString(R.string.android_sdk_preview, Build.VERSION.CODENAME));
+        } else {
+            binding.androidVersion.setText(context.getString(R.string.android_sdk, getAndroidVersion(), Build.VERSION.RELEASE, Build.VERSION.SDK_INT));
+        }
+
         binding.manufacturer.setText(getUIFramework());
         binding.cpu.setText(getCompleteArch());
 
-        if (Constants.isPermissive()) {
+        if (ConfigManager.isPermissive()) {
             binding.selinux.setVisibility(View.VISIBLE);
             binding.selinux.setText(HtmlCompat.fromHtml(context.getString(R.string.selinux_permissive), HtmlCompat.FROM_HTML_MODE_LEGACY));
         }
@@ -128,7 +130,6 @@ public class StatusDialogBuilder extends AlertDialog.Builder {
 
     private String getAndroidVersion() {
         switch (Build.VERSION.SDK_INT) {
-            case 26:
             case 27:
                 return "Oreo";
             case 28:
@@ -137,6 +138,8 @@ public class StatusDialogBuilder extends AlertDialog.Builder {
                 return "Q";
             case 30:
                 return "R";
+            case 31:
+                return "S";
         }
         return "Unknown";
     }

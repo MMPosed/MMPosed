@@ -20,3 +20,10 @@
 # hide the original source file name.
 -renamesourcefileattribute
 -keep class io.github.lsposed.manager.Constants { *; }
+-keepclasseswithmembers class io.github.lsposed.manager.receivers.LSPosedManagerServiceClient {
+    private static android.os.IBinder binder;
+}
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void check*(...);
+    public static void throw*(...);
+}

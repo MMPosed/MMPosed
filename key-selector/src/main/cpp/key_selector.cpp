@@ -14,7 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with LSPosed.  If not, see <https://www.gnu.org/licenses/>.
  *
- * Copyright (C) 2020 EdXposed Contributors
+ * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2015-2016 The CyanogenMod Project
  * Copyright (C) 2021 LSPosed Contributors
  */
 
@@ -266,6 +267,7 @@ int main() {
 #endif
 
     std::unordered_map<Variant, VariantDetail> variants;
+    std::string sandhook_deprecated = "SandHook " + l->deprecated();
     for (const auto i: AllVariants) {
         switch (i) {
             case Variant::YAHFA:
@@ -276,7 +278,7 @@ int main() {
                 break;
             case Variant::SandHook:
                 variants[i] = {
-                        .expression = "SandHook",
+                        .expression = sandhook_deprecated.c_str(),
                         .supported_arch = {ARM, ARM64}
                 };
                 break;
@@ -286,36 +288,27 @@ int main() {
     Variant cursor = Variant::YAHFA;
 
     // Load current variant
-    std::filesystem::path lspd_folder;
-    bool found = false;
-    for (auto &item: std::filesystem::directory_iterator("/data/misc/")) {
-        if (item.is_directory() && item.path().string().starts_with("/data/misc/lspd")) {
-            lspd_folder = item;
-            found = true;
-            break;
-        }
-    }
+    std::filesystem::path lspd_folder("/data/adb/lspd/config");
+    std::filesystem::create_directories(lspd_folder);
 
-    if (found) {
-        const auto variant_file = lspd_folder / "variant";
-        if (std::filesystem::exists(variant_file)) {
-            std::ifstream ifs(variant_file);
-            if (ifs.good()) {
-                std::string line;
-                std::getline(ifs, line);
-                char* end;
-                int i = std::strtol(line.c_str(), &end, 10);
-                switch (i) {
-                    default:
-                    case 1:
-                        cursor = Variant::YAHFA;
-                        break;
-                    case 2:
-                        cursor = Variant::SandHook;
-                        break;
-                }
-                timeout = 5;
+    const auto variant_file = lspd_folder / "variant";
+    if (std::filesystem::exists(variant_file)) {
+        std::ifstream ifs(variant_file);
+        if (ifs.good()) {
+            std::string line;
+            std::getline(ifs, line);
+            char* end;
+            int i = std::strtol(line.c_str(), &end, 10);
+            switch (i) {
+                default:
+                case 1:
+                    cursor = Variant::YAHFA;
+                    break;
+                case 2:
+                    cursor = Variant::SandHook;
+                    break;
             }
+            timeout = 5;
         }
     }
 
