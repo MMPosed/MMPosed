@@ -21,7 +21,6 @@
 #include <jni.h>
 #include <native_util.h>
 #include <art/runtime/class_linker.h>
-#include <nativehelper/jni_macros.h>
 #include <vector>
 #include <HookMain.h>
 #include <unordered_set>
@@ -33,7 +32,7 @@ namespace lspd {
 
     LSP_DEF_NATIVE_METHOD(void, ClassLinker, setEntryPointsToInterpreter, jobject method) {
         void *reflected_method = getArtMethodYahfa(env, method);
-        if (deopted_methods.count(reflected_method)) {
+        if (deopted_methods.contains(reflected_method)) {
             LOGD("method %p has been deopted before, skip...", reflected_method);
             return;
         }
@@ -45,7 +44,7 @@ namespace lspd {
 
     static JNINativeMethod gMethods[] = {
             LSP_NATIVE_METHOD(ClassLinker, setEntryPointsToInterpreter,
-                              "(Ljava/lang/reflect/Member;)V")
+                              "(Ljava/lang/reflect/Executable;)V")
     };
 
     void RegisterArtClassLinker(JNIEnv *env) {

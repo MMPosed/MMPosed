@@ -19,10 +19,8 @@
  */
 
 #include "logger.h"
-#include "nativehelper/jni_macros.h"
 #include "native_util.h"
-#include "JNIHelper.h"
-#include <fstream>
+#include "jni_helper.h"
 #include <fcntl.h>
 
 namespace lspd {

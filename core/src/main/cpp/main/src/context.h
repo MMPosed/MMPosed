@@ -29,12 +29,6 @@
 #include "utils.h"
 
 namespace lspd {
-    enum Variant {
-        NONE = 0,
-        YAHFA = 1,
-        SANDHOOK = 2,
-    };
-
     class Context {
 
     public:
@@ -64,7 +58,7 @@ namespace lspd {
 
         void OnNativeForkSystemServerPre(JNIEnv *env);
 
-        void PreLoadDex(const std::filesystem::path &dex_paths);
+        void PreLoadDex(const std::string &dex_paths);
 
     private:
         inline static std::unique_ptr<Context> instance_ = std::make_unique<Context>();
@@ -76,7 +70,7 @@ namespace lspd {
         jclass class_linker_class_ = nullptr;
         jmethodID post_fixup_static_mid_ = nullptr;
         bool skip_ = false;
-        std::vector<signed char> dex{};
+        std::vector<char> dex{};
 
         Context() {}
 

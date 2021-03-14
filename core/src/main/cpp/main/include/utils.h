@@ -20,6 +20,9 @@
 
 #pragma once
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+
 #include <string>
 #include <filesystem>
 #include <sys/system_properties.h>
@@ -36,54 +39,44 @@ namespace lspd {
         return atoi(prop_value);
     }
 
-    static inline std::string GetAndroidBrand() {
-        char prop_value[PROP_VALUE_MAX];
-        __system_property_get("ro.product.brand", prop_value);
-        return prop_value;
+
+    template<char... chars>
+    struct tstring : public std::integer_sequence<char, chars...> {
+        const char *c_str() const {
+            return str_;
+        }
+
+        operator std::string_view() const {
+            return c_str();
+        }
+
+    private:
+        constexpr static char str_[]{chars..., '\0'};
+    };
+
+    template<typename T, T... chars>
+    inline constexpr tstring<chars...> operator ""_tstr() {
+        return {};
     }
 
-    template<bool quite = false>
-    inline bool path_exists(const std::filesystem::path &path) {
-        try {
-            return std::filesystem::exists(path);
-        } catch (const std::filesystem::filesystem_error &e) {
-            if constexpr(!quite) {
-                LOGE("%s", e.what());
-            }
-            return false;
-        }
+
+    template<char... as, char... bs>
+    inline constexpr tstring<as..., bs...>
+    operator+(const tstring<as...> &, const tstring<bs...> &) {
+        return {};
     }
 
-    inline void
-    path_chown(const std::filesystem::path &path, uid_t uid, gid_t gid, bool recursively = false) {
-        if (chown(path.c_str(), uid, gid) != 0) {
-            throw std::filesystem::filesystem_error(strerror(errno), path,
-                                                    {errno, std::system_category()});
-        }
-        if (recursively) {
-            for (const auto &item : std::filesystem::recursive_directory_iterator(path)) {
-                if (chown(item.path().c_str(), uid, gid) != 0) {
-                    throw std::filesystem::filesystem_error(strerror(errno), item.path(),
-                                                            {errno, std::system_category()});
-                }
-            }
-        }
+    template<char... as>
+    inline constexpr auto operator+(const std::string &a, const tstring<as...> &) {
+        char b[]{as..., '\0'};
+        return a + b;
     }
 
-    inline std::tuple<uid_t, gid_t> path_own(const std::filesystem::path &path) {
-        struct stat sb;
-        stat(path.c_str(), &sb);
-        return {sb.st_uid, sb.st_gid};
-    }
-
-    inline void recursive_permissions(const std::filesystem::path &p,
-                                      std::filesystem::perms prms,
-                                      std::filesystem::perm_options opts = std::filesystem::perm_options::replace) {
-        std::filesystem::permissions(p, prms, opts);
-        if (std::filesystem::is_directory(p)) {
-            for(auto &item : std::filesystem::recursive_directory_iterator(p)) {
-                std::filesystem::permissions(item.path(), prms, opts);
-            }
-        }
+    template<char... as>
+    inline constexpr auto operator+(const tstring<as...> &, const std::string &b) {
+        char a[]{as..., '\0'};
+        return a + b;
     }
 }
+
+#pragma clang diagnostic pop

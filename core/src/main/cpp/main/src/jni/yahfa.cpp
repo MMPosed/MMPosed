@@ -20,7 +20,6 @@
 
 #include "yahfa.h"
 #include "HookMain.h"
-#include "nativehelper/jni_macros.h"
 #include "native_util.h"
 #include "pending_hooks.h"
 #include "art/runtime/class_linker.h"
@@ -59,7 +58,7 @@ namespace lspd {
         return lspd::isHooked(getArtMethodYahfa(env, member));
     }
 
-    LSP_DEF_NATIVE_METHOD(jclass, Yahfa, buildHooker, jobject app_class_loader, jclass return_class, jobjectArray classes) {
+    LSP_DEF_NATIVE_METHOD(jclass, Yahfa, buildHooker, jobject app_class_loader, jclass return_class, jobjectArray classes, jstring method_name) {
         static auto in_memory_classloader = (jclass)env->NewGlobalRef(env->FindClass( "dalvik/system/InMemoryDexClassLoader"));
         static jmethodID initMid = JNI_GetMethodID(env, in_memory_classloader, "<init>",
                                             "(Ljava/nio/ByteBuffer;Ljava/lang/ClassLoader;)V");
@@ -97,7 +96,7 @@ namespace lspd {
                 .Encode();
 
         auto hookBuilder{cbuilder.CreateMethod(
-                "hook", Prototype{return_type, parameter_types})};
+                JUTFString(env, method_name), Prototype{return_type, parameter_types})};
         // allocate tmp frist because of wide
         auto tmp{hookBuilder.AllocRegister()};
         hookBuilder.BuildConst(tmp, parameter_types.size());
@@ -153,10 +152,8 @@ namespace lspd {
         auto *back_method = backup_builder.Encode();
 
         slicer::MemView image{dex_file.CreateImage()};
-        std::unique_ptr<char[]> buffer = std::make_unique<char[]>(image.size());
-        memcpy(buffer.get(), image.ptr(), image.size());
 
-        auto dex_buffer = env->NewDirectByteBuffer(buffer.get(), image.size());
+        auto dex_buffer = env->NewDirectByteBuffer(const_cast<void*>(image.ptr()), image.size());
         jobject my_cl = JNI_NewObject(env, in_memory_classloader, initMid,
                                       dex_buffer, app_class_loader);
 
@@ -176,12 +173,12 @@ namespace lspd {
     static JNINativeMethod gMethods[] = {
             LSP_NATIVE_METHOD(Yahfa, init, "(I)V"),
             LSP_NATIVE_METHOD(Yahfa, findMethodNative,
-                              "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/reflect/Member;"),
+                              "(Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/reflect/Executable;"),
             LSP_NATIVE_METHOD(Yahfa, backupAndHookNative,
-                              "(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;)Z"),
-            LSP_NATIVE_METHOD(Yahfa, recordHooked, "(Ljava/lang/reflect/Member;)V"),
-            LSP_NATIVE_METHOD(Yahfa, isHooked, "(Ljava/lang/reflect/Member;)Z"),
-            LSP_NATIVE_METHOD(Yahfa, buildHooker, "(Ljava/lang/ClassLoader;Ljava/lang/Class;[Ljava/lang/Class;)Ljava/lang/Class;"),
+                              "(Ljava/lang/reflect/Executable;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;)Z"),
+            LSP_NATIVE_METHOD(Yahfa, recordHooked, "(Ljava/lang/reflect/Executable;)V"),
+            LSP_NATIVE_METHOD(Yahfa, isHooked, "(Ljava/lang/reflect/Executable;)Z"),
+            LSP_NATIVE_METHOD(Yahfa, buildHooker, "(Ljava/lang/ClassLoader;Ljava/lang/Class;[Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Class;"),
     };
 
     void RegisterYahfa(JNIEnv *env) {
