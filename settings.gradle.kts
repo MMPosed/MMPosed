@@ -1,4 +1,4 @@
-rootProject.name = "LSPosed"
+rootProject.name = "MMPosed"
 include(":core", ":hiddenapi-stubs", ":app", ":service", ":interface", ":hiddenapi-bridge", ":manager-service")
 
 val serviceRoot = "service"
