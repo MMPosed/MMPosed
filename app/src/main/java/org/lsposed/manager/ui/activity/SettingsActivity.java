@@ -20,11 +20,15 @@
 
 package org.lsposed.manager.ui.activity;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -41,10 +45,8 @@ import androidx.preference.SwitchPreference;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.snackbar.Snackbar;
+import com.takisoft.preferencex.PreferenceCategory;
 import com.takisoft.preferencex.PreferenceFragmentCompat;
-
-import java.util.Calendar;
-import java.util.Locale;
 
 import org.lsposed.manager.BuildConfig;
 import org.lsposed.manager.ConfigManager;
@@ -53,6 +55,10 @@ import org.lsposed.manager.databinding.ActivitySettingsBinding;
 import org.lsposed.manager.ui.activity.base.BaseActivity;
 import org.lsposed.manager.util.BackupUtils;
 import org.lsposed.manager.util.theme.ThemeUtil;
+
+import java.util.Calendar;
+import java.util.Locale;
+
 import rikka.core.util.ResourceUtils;
 import rikka.material.app.DayNightDelegate;
 import rikka.recyclerview.RecyclerViewKt;
@@ -279,6 +285,18 @@ public class SettingsActivity extends BaseActivity {
                     }
                     return true;
                 });
+            }
+
+            PreferenceCategory prefGroupSystem = findPreference("settings_group_system");
+            SwitchPreference prefShowHiddenIcons = findPreference("show_hidden_icon_apps_enabled");
+            if (prefGroupSystem != null && prefShowHiddenIcons != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    && requireActivity().checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED) {
+                prefGroupSystem.setVisible(true);
+                prefShowHiddenIcons.setVisible(true);
+                prefShowHiddenIcons.setChecked(Settings.Global.getInt(
+                        requireActivity().getContentResolver(), "show_hidden_icon_apps_enabled", 1) != 0);
+                prefShowHiddenIcons.setOnPreferenceChangeListener((preference, newValue) -> Settings.Global.putInt(requireActivity().getContentResolver(),
+                        "show_hidden_icon_apps_enabled", (boolean) newValue ? 1 : 0));
             }
         }
 

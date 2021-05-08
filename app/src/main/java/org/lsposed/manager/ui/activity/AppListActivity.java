@@ -44,10 +44,12 @@ import org.lsposed.manager.databinding.ActivityAppListBinding;
 import org.lsposed.manager.ui.activity.base.BaseActivity;
 import org.lsposed.manager.util.BackupUtils;
 import org.lsposed.manager.util.LinearLayoutManagerFix;
+import org.lsposed.manager.util.ModuleUtil;
+
 import rikka.recyclerview.RecyclerViewKt;
 
 public class AppListActivity extends BaseActivity {
-    private SearchView searchView;
+    public SearchView searchView;
     private ScopeAdapter scopeAdapter;
 
     private SearchView.OnQueryTextListener searchListener;
@@ -59,18 +61,23 @@ public class AppListActivity extends BaseActivity {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         String modulePackageName = getIntent().getStringExtra("modulePackageName");
-        String moduleName = getIntent().getStringExtra("moduleName");
         binding = ActivityAppListBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         setAppBar(binding.appBar, binding.toolbar);
         binding.appBar.setRaised(true);
         binding.toolbar.setNavigationOnClickListener(view -> onBackPressed());
+        ModuleUtil.InstalledModule module = ModuleUtil.getInstance().getModule(modulePackageName);
+        if (module == null) {
+            finish();
+            return;
+        }
         ActionBar bar = getSupportActionBar();
-        assert bar != null;
-        bar.setDisplayHomeAsUpEnabled(true);
-        bar.setTitle(moduleName);
-        bar.setSubtitle(modulePackageName);
-        scopeAdapter = new ScopeAdapter(this, moduleName, modulePackageName);
+        if (bar != null) {
+            bar.setDisplayHomeAsUpEnabled(true);
+            bar.setTitle(module.getAppName());
+            bar.setSubtitle(module.packageName);
+        }
+        scopeAdapter = new ScopeAdapter(this, module);
         scopeAdapter.setHasStableIds(true);
         binding.recyclerView.setAdapter(scopeAdapter);
         binding.recyclerView.setHasFixedSize(true);
@@ -149,6 +156,12 @@ public class AppListActivity extends BaseActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        scopeAdapter.refresh(false);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (scopeAdapter.onOptionsItemSelected(item)) {
             return true;
@@ -162,15 +175,6 @@ public class AppListActivity extends BaseActivity {
         searchView = (SearchView) menu.findItem(R.id.menu_search).getActionView();
         searchView.setOnQueryTextListener(searchListener);
         return super.onCreateOptionsMenu(menu);
-    }
-
-    public void onDataReady() {
-        runOnUiThread(() -> {
-            binding.progress.setIndeterminate(false);
-            binding.swipeRefreshLayout.setRefreshing(false);
-            String queryStr = searchView != null ? searchView.getQuery().toString() : "";
-            scopeAdapter.getFilter().filter(queryStr);
-        });
     }
 
     @Override

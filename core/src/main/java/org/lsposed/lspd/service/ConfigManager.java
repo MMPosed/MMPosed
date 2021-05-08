@@ -19,6 +19,8 @@
 
 package org.lsposed.lspd.service;
 
+import static org.lsposed.lspd.service.ServiceManager.TAG;
+
 import android.content.ContentValues;
 import android.content.pm.PackageInfo;
 import android.database.Cursor;
@@ -39,34 +41,33 @@ import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.io.BufferedReader;
+import org.lsposed.lspd.Application;
+import org.lsposed.lspd.BuildConfig;
+
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.lsposed.lspd.Application;
-import org.lsposed.lspd.BuildConfig;
-
-import static org.lsposed.lspd.service.ServiceManager.TAG;
-
 // This config manager assume uid won't change when our service is off.
 // Otherwise, user should maintain it manually.
 public class ConfigManager {
+    private static final String[] MANAGER_PERMISSIONS_TO_GRANT = new String[]{
+            "android.permission.INTERACT_ACROSS_USERS",
+            "android.permission.WRITE_SECURE_SETTINGS"
+    };
+
     static ConfigManager instance = null;
 
     private static final File basePath = new File("/data/adb/lspd");
@@ -87,10 +88,6 @@ public class ConfigManager {
 
     private static final File miscFile = new File(basePath, "misc_path");
     private String miscPath = null;
-
-    private static final File selinuxPath = new File("/sys/fs/selinux/enforce");
-    // only check on boot
-    private final boolean isPermissive;
 
     private static final File logPath = new File(basePath, "log");
     private static final File modulesLogPath = new File(logPath, "modules.log");
@@ -280,7 +277,6 @@ public class ConfigManager {
 
         createTables();
         updateConfig();
-        isPermissive = readInt(selinuxPath, 1) == 0;
         // must ensure cache is valid for later usage
         updateCaches(true);
     }
@@ -569,10 +565,6 @@ public class ConfigManager {
         this.verboseLog = verboseLog;
     }
 
-    public boolean isPermissive() {
-        return isPermissive;
-    }
-
     public boolean resourceHook() {
         return resourceHook;
     }
@@ -632,11 +624,14 @@ public class ConfigManager {
     }
 
     public static void grantManagerPermission() {
-        try {
-            PackageService.grantRuntimePermission(readText(managerPath, BuildConfig.DEFAULT_MANAGER_PACKAGE_NAME), "android.permission.INTERACT_ACROSS_USERS", 0);
-        } catch (RemoteException e) {
-            Log.e(TAG, Log.getStackTraceString(e));
-        }
+        String managerPackageName = readText(managerPath, BuildConfig.DEFAULT_MANAGER_PACKAGE_NAME);
+        Arrays.stream(MANAGER_PERMISSIONS_TO_GRANT).forEach(permission -> {
+            try {
+                PackageService.grantRuntimePermission(managerPackageName, permission, 0);
+            } catch (RemoteException e) {
+                Log.e(TAG, Log.getStackTraceString(e));
+            }
+        });
     }
 
     public boolean isModule(int uid) {
@@ -665,69 +660,6 @@ public class ConfigManager {
             Log.e(TAG, Log.getStackTraceString(e));
             return false;
         }
-    }
-
-    // migrate setting
-    public static void main(String[] args) {
-        if (!miscFile.exists()) {
-            System.exit(1);
-        }
-        File miscPath = new File("/data/misc/" + readText(miscFile, "lspd"));
-        if (!miscPath.exists()) {
-            System.exit(2);
-        }
-        try {
-            HashMap<String, List<Application>> modulesScope = new HashMap<>();
-            for (File dir : miscPath.listFiles(File::isDirectory)) {
-                try {
-                    int userId = Integer.parseInt(dir.getName());
-                    System.out.println("Processing user: " + userId);
-                    File conf = new File(dir, "conf");
-                    if (!conf.exists()) continue;
-                    File enabledModules = new File(conf, "enabled_modules.list");
-                    if (!enabledModules.exists()) continue;
-
-                    System.out.println("updating modules...");
-
-                    try (InputStream inputStream = new FileInputStream(enabledModules); BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                        String packageName;
-                        while ((packageName = reader.readLine()) != null) {
-                            System.out.println("\t" + packageName);
-                            PackageInfo pkgInfo = PackageService.getPackageInfo(packageName, 0, 0);
-                            if (pkgInfo == null || pkgInfo.applicationInfo == null) continue;
-                            getInstance().enableModule(packageName, pkgInfo.applicationInfo.sourceDir);
-                        }
-                    }
-                    System.out.println("updating scope...");
-
-                    for (File scopeConf : conf.listFiles(name -> name.getName().endsWith(".conf"))) {
-                        String packageName = scopeConf.getName().replaceAll(".conf$", "");
-                        System.out.println("\t" + packageName);
-                        List<Application> scope = modulesScope.computeIfAbsent(packageName, ignored -> new ArrayList<>());
-                        try (InputStream inputStream = new FileInputStream(scopeConf); BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                Application app = new Application();
-                                app.packageName = line;
-                                app.userId = userId;
-                                System.out.println("\t\t" + app.packageName);
-                                scope.add(app);
-                            }
-                        }
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-            }
-
-            System.out.println("Applying scope");
-            for (HashMap.Entry<String, List<Application>> entry : modulesScope.entrySet()) {
-                getInstance().setModuleScope(entry.getKey(), entry.getValue());
-            }
-        } catch (Throwable e) {
-            System.out.println(Log.getStackTraceString(e));
-            System.exit(3);
-        }
-        System.exit(0);
     }
 
     public String getManagerPackageName() {

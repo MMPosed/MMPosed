@@ -22,6 +22,7 @@ package org.lsposed.manager.ui.activity;
 
 import static android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -68,7 +69,6 @@ import org.lsposed.manager.util.GlideApp;
 import org.lsposed.manager.util.ModuleUtil;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -198,10 +198,10 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
     }
 
     private class ModuleAdapter extends BaseAdapter<ModuleAdapter.ViewHolder> {
-        private List<ModuleUtil.InstalledModule> fullList, showList;
+        private final List<ModuleUtil.InstalledModule> searchList = new ArrayList<>();
+        private final List<ModuleUtil.InstalledModule> showList = new ArrayList<>();
 
         ModuleAdapter() {
-            fullList = showList = Collections.emptyList();
             refresh();
         }
 
@@ -265,6 +265,7 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
 
             holder.itemView.setOnCreateContextMenuListener((menu, v, menuInfo) -> {
                 getMenuInflater().inflate(R.menu.context_menu_modules, menu);
+                menu.setHeaderTitle(item.getAppName());
                 Intent intent = AppHelper.getSettingsIntent(item.packageName, pm);
                 if (intent == null) {
                     menu.removeItem(R.id.menu_launch);
@@ -277,7 +278,6 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(ModulesActivity.this, AppListActivity.class);
                 intent.putExtra("modulePackageName", item.packageName);
-                intent.putExtra("moduleName", item.getAppName());
                 startActivity(intent);
             });
 
@@ -317,9 +317,10 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
 
         private final Runnable reloadModules = new Runnable() {
             public void run() {
-                fullList = new ArrayList<>(moduleUtil.getModules().values());
+                searchList.clear();
+                searchList.addAll(moduleUtil.getModules().values());
                 Comparator<PackageInfo> cmp = AppHelper.getAppListComparator(0, pm);
-                fullList.sort((a, b) -> {
+                searchList.sort((a, b) -> {
                     boolean aChecked = moduleUtil.isModuleEnabled(a.packageName);
                     boolean bChecked = moduleUtil.isModuleEnabled(b.packageName);
                     if (aChecked == bChecked) {
@@ -330,7 +331,6 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
                         return 1;
                     }
                 });
-                showList = fullList;
                 String queryStr = searchView != null ? searchView.getQuery().toString() : "";
                 runOnUiThread(() -> getFilter().filter(queryStr));
             }
@@ -363,25 +363,31 @@ public class ModulesActivity extends ListActivity implements ModuleUtil.ModuleLi
 
             @Override
             protected FilterResults performFiltering(CharSequence constraint) {
+                FilterResults filterResults = new FilterResults();
+                List<ModuleUtil.InstalledModule> filtered = new ArrayList<>();
                 if (constraint.toString().isEmpty()) {
-                    showList = fullList;
+                    filtered.addAll(searchList);
                 } else {
-                    ArrayList<ModuleUtil.InstalledModule> filtered = new ArrayList<>();
                     String filter = constraint.toString().toLowerCase();
-                    for (ModuleUtil.InstalledModule info : fullList) {
+                    for (ModuleUtil.InstalledModule info : searchList) {
                         if (lowercaseContains(info.getAppName(), filter) ||
                                 lowercaseContains(info.packageName, filter) ||
                                 lowercaseContains(info.getDescription(), filter)) {
                             filtered.add(info);
                         }
                     }
-                    showList = filtered;
                 }
-                return null;
+                filterResults.values = filtered;
+                filterResults.count = filtered.size();
+                return filterResults;
             }
 
+            @SuppressLint("NotifyDataSetChanged")
             @Override
             protected void publishResults(CharSequence constraint, FilterResults results) {
+                showList.clear();
+                //noinspection unchecked
+                showList.addAll((List<ModuleUtil.InstalledModule>) results.values);
                 notifyDataSetChanged();
             }
         }

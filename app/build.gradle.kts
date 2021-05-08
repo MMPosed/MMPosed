@@ -16,7 +16,9 @@
  *
  * Copyright (C) 2021 LSPosed Contributors
  */
-import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+
+import com.android.build.api.variant.impl.ApplicationVariantImpl
+import com.android.build.gradle.internal.dsl.BuildType
 import java.nio.file.Paths
 
 plugins {
@@ -31,6 +33,7 @@ val androidCompileSdkVersion: Int by rootProject.extra
 val androidCompileNdkVersion: String by rootProject.extra
 val androidSourceCompatibility: JavaVersion by rootProject.extra
 val androidTargetCompatibility: JavaVersion by rootProject.extra
+val defaultManagerPackageName: String by rootProject.extra
 val verCode: Int by rootProject.extra
 val verName: String by rootProject.extra
 
@@ -40,22 +43,35 @@ val androidKeyAlias: String? by rootProject
 val androidKeyPassword: String? by rootProject
 
 android {
-    compileSdkVersion(androidCompileSdkVersion)
+    compileSdk = androidCompileSdkVersion
     ndkVersion = androidCompileNdkVersion
-    buildToolsVersion(androidBuildToolsVersion)
+    buildToolsVersion = androidBuildToolsVersion
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     defaultConfig {
-        applicationId("org.lsposed.manager")
-        minSdkVersion(androidMinSdkVersion)
-        targetSdkVersion(androidTargetSdkVersion)
-        versionCode(verCode)
-        versionName(verName)
-        resConfigs("en", "zh-rCN", "zh-rTW", "zh-rHK", "ru", "uk", "nl", "ko", "fr", "de", "it", "pt")
-        resValue("string", "versionName", verName)
+        applicationId = defaultManagerPackageName
+        minSdk = androidMinSdkVersion
+        targetSdk = androidTargetSdkVersion
+        versionCode = verCode
+        versionName = verName
+        resourceConfigurations += arrayOf(
+            "en",
+            "zh-rCN",
+            "zh-rTW",
+            "zh-rHK",
+            "ru",
+            "uk",
+            "nl",
+            "ko",
+            "fr",
+            "de",
+            "it",
+            "pt",
+        )
     }
 
     compileOptions {
@@ -96,32 +112,32 @@ android {
 
     buildTypes {
         signingConfigs.named("config").get().also {
-            named("debug") {
+            debug {
                 if (it.storeFile?.exists() == true) signingConfig = it
             }
-            named("release") {
+            release {
                 signingConfig = if (it.storeFile?.exists() == true) it
                 else signingConfigs.named("debug").get()
                 isMinifyEnabled = true
-                isShrinkResources = true
+                (this as BuildType).isShrinkResources = true
                 proguardFiles("proguard-rules.pro")
             }
         }
     }
+}
 
-    applicationVariants.all {
-        outputs.map { it as BaseVariantOutputImpl }.forEach { output ->
-            output.outputFileName = "LSPosedManager-${verName}-${verCode}-${buildType.name}.apk"
-        }
+androidComponents.onVariants { v ->
+    val variant = v as ApplicationVariantImpl
+    variant.outputs.forEach {
+        it.outputFileName.set("LSPosedManager-${verName}-${verCode}-${variant.name}.apk")
     }
 }
 
+
 val optimizeReleaseRes = task("optimizeReleaseRes").doLast {
-    val aapt2 = Paths.get(
-        project.android.sdkDirectory.path,
-        "build-tools",
-        project.android.buildToolsVersion,
-        "aapt2"
+    val aapt2 = File(
+        androidComponents.sdkComponents.sdkDirectory.get().asFile,
+        "build-tools/${androidBuildToolsVersion}/aapt2"
     )
     val mapping = Paths.get(
         project.buildDir.path,
@@ -167,12 +183,12 @@ dependencies {
     val markwonVersion = "4.6.2"
     val okhttpVersion = "4.9.1"
     annotationProcessor("com.github.bumptech.glide:compiler:$glideVersion")
-    implementation("androidx.activity:activity:1.2.1")
+    implementation("androidx.activity:activity:1.2.2")
     implementation("androidx.browser:browser:1.3.0")
     implementation("androidx.constraintlayout:constraintlayout:2.0.4")
     implementation("androidx.core:core:1.3.2")
-    implementation("androidx.fragment:fragment:1.3.1")
-    implementation("androidx.recyclerview:recyclerview:1.1.0")
+    implementation("androidx.fragment:fragment:1.3.3")
+    implementation("androidx.recyclerview:recyclerview:1.2.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.caverock:androidsvg-aar:1.4")
     implementation("com.github.bumptech.glide:glide:$glideVersion")
@@ -187,9 +203,9 @@ dependencies {
     implementation("dev.rikka.rikkax.appcompat:appcompat:1.2.0-rc01")
     implementation("dev.rikka.rikkax.core:core:1.3.2")
     implementation("dev.rikka.rikkax.insets:insets:1.0.1")
-    implementation("dev.rikka.rikkax.material:material:1.6.4")
+    implementation("dev.rikka.rikkax.material:material:1.6.5")
     implementation("dev.rikka.rikkax.preference:simplemenu-preference:1.0.2")
-    implementation("dev.rikka.rikkax.recyclerview:recyclerview-ktx:1.2.0")
+    implementation("dev.rikka.rikkax.recyclerview:recyclerview-ktx:1.2.1")
     implementation("dev.rikka.rikkax.widget:borderview:1.0.1")
     implementation("dev.rikka.rikkax.widget:switchbar:1.0.2")
     implementation("dev.rikka.rikkax.layoutinflater:layoutinflater:1.0.1")

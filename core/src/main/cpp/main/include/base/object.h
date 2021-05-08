@@ -25,6 +25,7 @@
 #include <sys/mman.h>
 #include "config.h"
 #include "native_hook.h"
+#include <concepts>
 
 #define _uintval(p)               reinterpret_cast<uintptr_t>(p)
 #define _ptr(p)                   reinterpret_cast<void *>(p)
@@ -78,15 +79,18 @@ namespace lspd {
         ShadowObject(void *thiz) : thiz_(thiz) {
         }
 
-        ALWAYS_INLINE inline void *Get() {
+        [[gnu::always_inline]]
+        inline void *Get() {
             return thiz_;
         }
 
-        ALWAYS_INLINE inline void Reset(void *thiz) {
+        [[gnu::always_inline]]
+        inline void Reset(void *thiz) {
             thiz_ = thiz;
         }
 
-        ALWAYS_INLINE inline operator bool() const {
+        [[gnu::always_inline]]
+        inline operator bool() const {
             return thiz_ != nullptr;
         }
 
@@ -99,26 +103,19 @@ namespace lspd {
     public:
 
         HookedObject(void *thiz) : ShadowObject(thiz) {}
-
-        static void SetupSymbols(void *handle) {
-
-        }
-
-        static void SetupHooks(void *handle, HookFunType hook_fun) {
-
-        }
     };
 
     struct ObjPtr {
         void *data;
     };
 
-    ALWAYS_INLINE static void *Dlsym(void *handle, const char *name) {
+    [[gnu::always_inline]]
+    inline void *Dlsym(void *handle, const char *name) {
         return dlsym(handle, name);
     }
 
     template<class T, class ... Args>
-    static void *Dlsym(void *handle, T first, Args... last) {
+    inline void *Dlsym(void *handle, T first, Args... last) {
         auto ret = Dlsym(handle, first);
         if (ret) {
             return ret;
@@ -126,9 +123,27 @@ namespace lspd {
         return Dlsym(handle, last...);
     }
 
-    ALWAYS_INLINE inline static void HookFunction(void *original, void *replace, void **backup) {
+    inline int HookFunction(void *original, void *replace, void **backup) {
         _make_rwx(original, _page_size);
-        hook_func(original, replace, backup);
+        if constexpr (isDebug) {
+            Dl_info info;
+            dladdr(original, &info);
+            LOGD("Hooking %s (%p) from %s (%p)",
+                 info.dli_sname ? info.dli_sname : "(unknown symbol)", info.dli_saddr,
+                 info.dli_fname ? info.dli_fname : "(unknown file)", info.dli_fbase);
+        }
+        return DobbyHook(original, replace, backup);
+    }
+
+    inline int UnhookFunction(void *original) {
+        if constexpr (isDebug) {
+            Dl_info info;
+            dladdr(original, &info);
+            LOGD("Unhooking %s (%p) from %s (%p)",
+                 info.dli_sname ? info.dli_sname : "(unknown symbol)", info.dli_saddr,
+                 info.dli_fname ? info.dli_fname : "(unknown file)", info.dli_fbase);
+        }
+        return DobbyDestroy(original);
     }
 
     template<class, template<class, class...> class>
@@ -140,9 +155,8 @@ namespace lspd {
     };
 
     template<typename Class, typename Return, typename T, typename... Args>
+    requires (std::is_same_v<T, void> || std::is_same_v<Class, T>)
     inline static auto memfun_cast(Return (*func)(T *, Args...)) {
-        static_assert(std::is_same_v<T, void> || std::is_same_v<Class, T>,
-                      "Not viable cast");
         union {
             Return (Class::*f)(Args...);
 
@@ -155,8 +169,7 @@ namespace lspd {
         return u.f;
     }
 
-    template<typename T, typename Return, typename... Args,
-            typename = std::enable_if_t<!std::is_same_v<T, void>>>
+    template<std::same_as<void> T, typename Return, typename... Args>
     inline auto memfun_cast(Return (*func)(T *, Args...)) {
         return memfun_cast<T>(func);
     }
@@ -203,7 +216,7 @@ namespace lspd {
     struct Hooker<Ret(Args...), tstring<cs...>> {
         inline static Ret (*backup)(Args...) = nullptr;
 
-        inline static constexpr const char sym[sizeof...(cs) + 1] = {cs..., '\0'};
+        inline static constexpr const char *sym = tstring<cs...>::c_str();
     };
 
     template<typename, typename>
@@ -211,10 +224,16 @@ namespace lspd {
     template<typename Ret, typename This, typename... Args, char... cs>
     struct MemHooker<Ret(This, Args...), tstring<cs...>> {
         inline static MemberFunction<Ret(Args...)> backup;
-        inline static constexpr const char sym[sizeof...(cs) + 1] = {cs..., '\0'};
+        inline static constexpr const char *sym = tstring<cs...>::c_str();
     };
 
     template<typename T>
+    concept HookerType = requires(T a) {
+        a.backup;
+        a.replace;
+    };
+
+    template<HookerType T>
     inline static bool HookSymNoHandle(void *original, T &arg) {
         if (original) {
             if constexpr(is_instance<decltype(arg.backup), MemberFunction>::value) {
@@ -231,13 +250,13 @@ namespace lspd {
         }
     }
 
-    template<typename T>
+    template<HookerType T>
     inline static bool HookSym(void *handle, T &arg) {
         auto original = Dlsym(handle, arg.sym);
         return HookSymNoHandle(original, arg);
     }
 
-    template<typename T, typename...Args>
+    template<HookerType T, HookerType...Args>
     inline static bool HookSyms(void *handle, T &first, Args &...rest) {
         if (!(HookSym(handle, first) || ... || HookSym(handle, rest))) {
             LOGW("Hook Fails: %s", first.sym);

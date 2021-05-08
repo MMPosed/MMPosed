@@ -38,8 +38,6 @@
 
     <string name="activated">Attivo</string>
     <string name="not_installed">Non installato</string>
-    <string name="selinux_permissive">&lt;b&gt;ATTENZIONE:&lt;\/b&gt; SELinux non è in modalità enforcing! un programma dannoso che lo attacca può controllare completamente il tuo dispositivo e può causare danni alla tua proprietà e responsabilità legale.</string>
-    <string name="selinux_permissive_summary">SELinux non è in modalità enforcing!</string>
     <string name="partial_activated">Parzialmente attivo</string>
     <string name="selinux_policy_not_loaded_summary">SEPolicy non è caricato correttamente</string>
     <string name="selinux_policy_not_loaded"><![CDATA[<b>WARNING:</b> SEPolicy non è caricato correttamente, i moduli che agganciano il Framework di Sistema non funzioneranno.<br>Per favore segnalalo allo sviluppatore di <a href="https://github.com/topjohnwu/Magisk/issues"><b>Magisk</b></a>.]]></string>
@@ -114,7 +112,7 @@
     <string name="use_recommended">Consigliate</string>
     <string name="no_scope_selected_has_recommended">Non hai selezionato alcuna app. Selezionare le app consigliate?</string>
     <string name="use_recommended_message">Selezionare le app consigliate?</string>
-    <string name="requested_by_module">Consgiliate</string>
+    <string name="requested_by_module">Consigliate</string>
     <string name="module_disabled_no_selection">Il modulo %s è stato disabilitato poiché nessuna app è stata selezionata.</string>
     <string name="android_framework">Framework di sistema</string>
     <string name="menu_backup_and_restore">Backup…</string>

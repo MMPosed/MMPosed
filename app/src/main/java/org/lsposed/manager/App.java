@@ -29,15 +29,16 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
 
+import org.lsposed.manager.repo.RepoLoader;
+import org.lsposed.manager.ui.activity.CrashReportActivity;
+import org.lsposed.manager.util.DoHDNS;
+import org.lsposed.manager.util.theme.ThemeUtil;
+
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Locale;
 
-import org.lsposed.manager.repo.RepoLoader;
-import org.lsposed.manager.ui.activity.CrashReportActivity;
-import org.lsposed.manager.util.DoHDNS;
-import org.lsposed.manager.util.theme.ThemeUtil;
 import okhttp3.Cache;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -107,6 +108,11 @@ public class App extends Application {
     public static OkHttpClient getOkHttpClient() {
         if (okHttpClient == null) {
             OkHttpClient.Builder builder = new OkHttpClient.Builder().cache(getOkHttpCache());
+            builder.addInterceptor(chain -> {
+                var request = chain.request().newBuilder();
+                request.header("User-Agent", TAG);
+                return chain.proceed(request.build());
+            });
             HttpLoggingInterceptor.Logger logger = s -> Log.v(TAG, s);
             HttpLoggingInterceptor log = new HttpLoggingInterceptor(logger);
             log.setLevel(HttpLoggingInterceptor.Level.HEADERS);

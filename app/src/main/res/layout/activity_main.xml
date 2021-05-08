@@ -28,18 +28,6 @@
     app:edgeToEdge="true"
     app:fitSystemWindowsInsets="start|end">
 
-    <ImageView
-        android:id="@+id/holiday_header"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scaleType="fitStart"
-        android:adjustViewBounds="true"
-        android:translationZ="100dp"
-        android:focusable="false"
-        android:focusableInTouchMode="false"
-        android:visibility="gone"
-        tools:ignore="ContentDescription" />
-
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -170,7 +158,7 @@
                             android:layout_height="28dp"
                             android:layout_centerVertical="true"
                             android:contentDescription="@string/Modules"
-                            app:srcCompat="@drawable/ic_modules" />
+                            app:srcCompat="@drawable/ic_extension" />
 
                         <TextView
                             android:id="@+id/modules_title"
